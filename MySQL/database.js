@@ -21,20 +21,55 @@ const database = {
         return rows
     },
 
-    async getProducts() {
+    async getProducts(id) {
         try {
             const query = `
-            select p.id, p.image as image, p.name, p.description, min(pv.price) as price from products as p
-            join productVariations as pv on p.id = pv.productId
-            group by p.id, p.image, p.name, p.description;
-        `;
-            const [rows] = await pool.query(query);
+                    select p.id, p.image, p.name, p.description, c.name as category, min(price) as minPrice, variation1, variation2, variation3
+                    from products as p
+                    join productVariations as pv on p.id = pv.productId
+                    join Categories as c on c.id = p.categoryId
+                    ${id !== undefined ? 'where p.id = ?' : ''}
+                    group by p.id, p.image, p.name, p.description, category;
+                `;
+            const [rows] = await pool.query(query, [id]);
             return rows.map(entry => ({ ...entry, image: `http://${HOST}:${PORT}${entry.image}` }));
         }
         catch (err) {
-            throw new Error(`Error fetching data from database ${err}`)
+            throw new Error(`Error fetching data from database ${err}`);
         }
     },
+
+    async getProductImages(id) {
+        try {
+            const query = `
+                    select image from productImages
+                    where productId = ?;
+                `;
+            const [rows] = await pool.query(query, [id]);
+            return rows.filter(x=>x).map(entry => `http://${HOST}:${PORT}${entry.image}`);
+        }
+        catch (err) {
+            throw new Error(`Error fetching data from database ${err}`);
+        }
+    },
+
+    async getVariations(id) {
+        try {
+            const query = `
+                select price, image, value1, value2, value3 from productVariations
+                where productId=?;
+            `;
+            const [rows] = await pool.query(query, [id]);
+            return rows.map(row => ({
+                price: row.price,
+                image: row.image,
+                values: [row.value1, row.value2, row.value3].filter(x=>x),
+            }));
+        }
+        catch (error) {
+            throw new Error(`Error fetching data from database ${err}`);
+        }
+    }
 }
 
 export default database;
